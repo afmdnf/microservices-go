@@ -11,21 +11,20 @@ Microservices also provide a form of concurrency. In this context, concurrency r
   <br/>
 </p>
 
-In this project, a memoization service for a machine learning classifier is created. Clients will send the service a request to classify an MNIST image. If the image is unseen, the machine-learning microservice is asked to classify it, but ML models can be expensive and slow to run. To speed things up, the service will save the classification of that image in a caching service. The next time the same image is requested, the answer can be fetched from the cache instead of the ML model, improving average performance significantly.
+**In this project, a memoization service for a machine learning classifier is created. Clients will send the service a request to classify an MNIST image. If the image is unseen, the machine-learning microservice is asked to classify it, but ML models can be expensive and slow to run. To speed things up, the service will save the classification of that image in a caching service. The next time the same image is requested, the answer can be fetched from the cache instead of the ML model, improving average performance significantly.**
 
 ## Classifier Service
 
 <p align="center">
-  <img src="https://github.com/afmdnf/microservices-go/blob/master/mnist.png" width="100">
+  <img src="https://github.com/afmdnf/microservices-go/blob/master/mnist.png" width="50">
   <br/>
 </p>
 
-The classifier service is designed to translate hand-written digits from the [classic MNIST dataset](https://en.wikipedia.org/wiki/MNIST_database). The input to it is a `[]byte` which represents a 28x28 pixel image. The classifier then runs an ensemble of support vector machine (SVM) classifiers, one for each digit, and picks the most likely digit to return (as an int). Like every service in this project, the classifier accepts a request ID with every request, and returns that ID with the corresponding response. This allows for potentially out-of-order messages (which can occur due to network issues or from optimizations).
+The classifier service is designed to translate hand-written digits from the [classic MNIST dataset](https://en.wikipedia.org/wiki/MNIST_database). The input to it is a `[]byte` which represents a 28x28 pixel image. The classifier then runs an ensemble of support vector machine (SVM) classifiers, one for each digit, and picks the most likely digit to return (as an int). Like every service in this project, the classifier accepts a request ID with every request and returns that ID with the corresponding response. This allows for potentially out-of-order messages (which can occur due to network issues or from optimizations).
 
 ## Cache Service
-The caching service is essentially a remote hash table. You give it key-value pairs and it saves them for later. You can then ask it if it's seen a particular key and it will return the corresponding value (if any). Caching services reduce the load on other services by saving frequent or recent results. The cache in this project is a very simple key-value store. To simplify things, it is assumed that it will never fill up (no need to deal with eviction/replacement). You send it requests using the `CacheReq` struct which contains a read/write flag, a 64-bit key, an int value, and (like everything) a 64-bit requestID. If the request is a write, then the cache will not respond. If the request is a read, then the cache will respond with a `CacheResp` struct that contains an `exists` flag (true if the item was found) and the corresponding value (if any), and the requestID.
-
-Note that the key is a 64-bit integer, but the images we are using are byte slices. To deal with this, the hash of the image is used as a key.
+The caching service is essentially a remote hash table. Caching services reduce the load on other services by saving frequent or recent results. The cache in this project is a very simple key-value store. To simplify things, it is assumed that it will never fill up (no eviction/replacement). You send it requests using the `CacheReq` struct which contains a read/write flag, a 64-bit key, an int value, and (like everything) a 64-bit requestID. If the request is a write, then the cache will not respond. If the request is a read, then the cache will respond with a `CacheResp` struct that contains the requestID, an `exists` flag (true if the item was found) and the corresponding value (if any).
+Note that the key is a 64-bit integer, but the images used are byte slices. To deal with this, the hash of the image is used as a key.
 
 ## Memoization Layer
 The memoization service uses the cache service to speed up requests to classify images that have already been seen before, in order to respond to them significantly faster. Existing users of the classifier should be able to place the memoization service in and immediately see benefits without changing any of their existing code.
